@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
-const sqlite3 = require('sqlite3').verbose();
+const mysql = require('mysql2/promise');
 const { Server } = require('socket.io');
 const http = require('http');
 const path = require('path');
@@ -112,34 +112,53 @@ if (!fs.existsSync('uploads')) {
 }
 
 // Database setup
-const db = new sqlite3.Database('bugtracker.db');
+const dbConfig = {
+  host: process.env.MYSQL_HOST || 'localhost',
+  port: process.env.MYSQL_PORT || 3306,
+  user: process.env.MYSQL_USER || 'root',
+  password: process.env.MYSQL_PASSWORD || '',
+  database: process.env.MYSQL_DATABASE || 'bugtracker',
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0
+};
+
+const db = mysql.createPool(dbConfig);
 
 // Initialize database tables
-db.serialize(() => {
-  db.run(`CREATE TABLE IF NOT EXISTS bugs (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT,
-    status TEXT DEFAULT 'reported',
-    priority TEXT DEFAULT 'medium',
-    reporter_name TEXT NOT NULL,
-    reporter_email TEXT NOT NULL,
-    assignee TEXT,
-    screenshots TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )`);
+async function initializeDatabase() {
+  try {
+    await db.execute(`CREATE TABLE IF NOT EXISTS bugs (
+      id VARCHAR(36) PRIMARY KEY,
+      title TEXT NOT NULL,
+      description TEXT,
+      status VARCHAR(20) DEFAULT 'reported',
+      priority VARCHAR(20) DEFAULT 'medium',
+      reporter_name VARCHAR(255) NOT NULL,
+      reporter_email VARCHAR(255) NOT NULL,
+      assignee VARCHAR(255),
+      screenshots JSON,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    )`);
 
-  db.run(`CREATE TABLE IF NOT EXISTS comments (
-    id TEXT PRIMARY KEY,
-    bug_id TEXT NOT NULL,
-    author TEXT NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (bug_id) REFERENCES bugs (id)
-  )`);
-});
+    await db.execute(`CREATE TABLE IF NOT EXISTS comments (
+      id VARCHAR(36) PRIMARY KEY,
+      bug_id VARCHAR(36) NOT NULL,
+      author VARCHAR(255) NOT NULL,
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      FOREIGN KEY (bug_id) REFERENCES bugs (id) ON DELETE CASCADE
+    )`);
+
+    console.log('Database tables initialized successfully');
+  } catch (error) {
+    console.error('Database initialization error:', error);
+  }
+}
+
+initializeDatabase();
 
 // File upload configuration
 const storage = multer.diskStorage({
@@ -270,46 +289,37 @@ app.delete('/api/bugs/:id', requireAuth, (req, res) => {
 });
 
 // API Routes
-app.get('/api/bugs', requireAuth, (req, res) => {
-  db.all('SELECT * FROM bugs ORDER BY created_at DESC', (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.get('/api/bugs', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await db.execute('SELECT * FROM bugs ORDER BY created_at DESC');
     
     // Parse screenshots JSON
     const bugs = rows.map(bug => ({
       ...bug,
-      screenshots: bug.screenshots ? JSON.parse(bug.screenshots) : []
+      screenshots: bug.screenshots || []
     }));
     
     res.json(bugs);
-  });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), (req, res) => {
-  const { title, description, priority } = req.body;
-  const id = uuidv4();
-  
-  // Use authenticated user's info
-  const reporter_name = req.user.name;
-  const reporter_email = req.user.email;
-  
-  const screenshots = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
-  
-  const stmt = db.prepare(`
-    INSERT INTO bugs (id, title, description, priority, reporter_name, reporter_email, screenshots)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  
-  stmt.run([
-    id, title, description, priority, reporter_name, reporter_email, 
-    JSON.stringify(screenshots)
-  ], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), async (req, res) => {
+  try {
+    const { title, description, priority } = req.body;
+    const id = uuidv4();
+    
+    // Use authenticated user's info
+    const reporter_name = req.user.name;
+    const reporter_email = req.user.email;
+    
+    const screenshots = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
+    
+    await db.execute(`
+      INSERT INTO bugs (id, title, description, priority, reporter_name, reporter_email, screenshots)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [id, title, description, priority, reporter_name, reporter_email, JSON.stringify(screenshots)]);
     
     const newBug = {
       id,
@@ -327,50 +337,39 @@ app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), (req, res) =>
     
     io.emit('bugCreated', newBug);
     res.json(newBug);
-  });
-  
-  stmt.finalize();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.put('/api/bugs/:id', requireAuth, (req, res) => {
-  const { id } = req.params;
-  const { title, description, status, assignee, priority } = req.body;
-  
-  const stmt = db.prepare(`
-    UPDATE bugs 
-    SET title = ?, description = ?, status = ?, assignee = ?, priority = ?, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `);
-  
-  stmt.run([title, description, status, assignee, priority, id], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.put('/api/bugs/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, status, assignee, priority } = req.body;
     
-    if (this.changes === 0) {
+    const [result] = await db.execute(`
+      UPDATE bugs 
+      SET title = ?, description = ?, status = ?, assignee = ?, priority = ?
+      WHERE id = ?
+    `, [title, description, status, assignee, priority, id]);
+    
+    if (result.affectedRows === 0) {
       res.status(404).json({ error: 'Bug not found' });
       return;
     }
     
     // Get updated bug
-    db.get('SELECT * FROM bugs WHERE id = ?', [id], (err, row) => {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      
-      const updatedBug = {
-        ...row,
-        screenshots: row.screenshots ? JSON.parse(row.screenshots) : []
-      };
-      
-      io.emit('bugUpdated', updatedBug);
-      res.json(updatedBug);
-    });
-  });
-  
-  stmt.finalize();
+    const [rows] = await db.execute('SELECT * FROM bugs WHERE id = ?', [id]);
+    const updatedBug = {
+      ...rows[0],
+      screenshots: rows[0].screenshots || []
+    };
+    
+    io.emit('bugUpdated', updatedBug);
+    res.json(updatedBug);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 app.get('/api/bugs/:id/comments', requireAuth, (req, res) => {

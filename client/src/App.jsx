@@ -7,7 +7,15 @@ import Login from './components/Login';
 import { useAuth } from './hooks/useAuth';
 import { Plus, Bug, LogOut, User, Download } from 'lucide-react';
 
-const socket = io(import.meta.env.VITE_API_URL || window.location.origin || 'http://localhost:3001');
+// Force correct socket URL for production
+const getSocketUrl = () => {
+  if (import.meta.env.PROD) {
+    return window.location.origin; // Use current domain in production
+  }
+  return import.meta.env.VITE_API_URL || 'http://localhost:3001';
+};
+
+const socket = io(getSocketUrl());
 
 function App() {
   const { user, loading: authLoading, logout, isAuthenticated } = useAuth();
