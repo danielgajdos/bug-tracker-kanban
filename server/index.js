@@ -263,6 +263,11 @@ app.delete('/api/bugs/:id', requireAuth, (req, res) => {
   });
 });
 
+// Health check endpoint (no auth required)
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // API Routes
 app.get('/api/bugs', requireAuth, (req, res) => {
   db.all('SELECT * FROM bugs ORDER BY created_at DESC', (err, rows) => {
