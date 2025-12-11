@@ -10,6 +10,13 @@ const columns = [
 ];
 
 const KanbanBoard = ({ bugs, onBugClick, onBugUpdate }) => {
+  const [optimisticBugs, setOptimisticBugs] = React.useState(bugs);
+
+  // Update optimistic state when bugs prop changes
+  React.useEffect(() => {
+    setOptimisticBugs(bugs);
+  }, [bugs]);
+
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
@@ -18,6 +25,12 @@ const KanbanBoard = ({ bugs, onBugClick, onBugUpdate }) => {
     
     const bug = bugs.find(b => b.id === draggableId);
     if (bug && bug.status !== newStatus) {
+      // Optimistically update the UI immediately
+      setOptimisticBugs(prev => prev.map(b => 
+        b.id === draggableId ? { ...b, status: newStatus } : b
+      ));
+
+      // Then update the server
       onBugUpdate(draggableId, { 
         title: bug.title,
         description: bug.description,
@@ -29,7 +42,7 @@ const KanbanBoard = ({ bugs, onBugClick, onBugUpdate }) => {
   };
 
   const getBugsByStatus = (status) => {
-    return bugs.filter(bug => bug.status === status);
+    return optimisticBugs.filter(bug => bug.status === status);
   };
 
   return (

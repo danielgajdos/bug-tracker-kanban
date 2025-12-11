@@ -77,25 +77,23 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-3">
             <AlertCircle className="h-6 w-6 text-red-500" />
-            <h2 className="text-xl font-semibold text-gray-900">Bug Details</h2>
           </div>
           <div className="flex items-center space-x-2">
             {isEditing ? (
               <>
-                <button
-                  onClick={handleSaveEdit}
-                  className="btn-primary flex items-center space-x-1"
-                >
-                  <Save className="h-4 w-4" />
-                  <span>Save</span>
-                </button>
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="btn-secondary"
-                >
-                  Cancel
-                </button>
-
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">Priority:</label>
+                  <select
+                    value={editData.priority}
+                    onChange={(e) => handleEditChange('priority', e.target.value)}
+                    className="input text-sm py-1 px-2 w-24"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
               </>
             ) : (
               <button
@@ -116,9 +114,9 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
         </div>
 
         <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className={`grid gap-6 ${isEditing ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-3'}`}>
             {/* Main Content */}
-            <div className="lg:col-span-2 space-y-6">
+            <div className={`space-y-6 ${!isEditing ? 'lg:col-span-2' : ''}`}>
               <div>
                 {isEditing && bug.status !== 'resolved' ? (
                   <div className="space-y-4">
@@ -200,8 +198,9 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
             </div>
 
             {/* Sidebar */}
-            <div className="space-y-6">
-              <div className="card">
+            {!isEditing && (
+              <div className="space-y-6">
+                <div className="card">
                 <h4 className="font-medium text-gray-900 mb-4">Bug Information</h4>
                 
                 <div className="space-y-3">
@@ -281,19 +280,30 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
                   )}
                 </div>
               </div>
-            </div>
+              </div>
+            )}
           </div>
         </div>
         
-        {/* Delete Button at Bottom */}
-        {isEditing && bug.status === 'reported' && (
-          <div className="px-6 py-4 border-t bg-gray-50">
+        {/* Bottom Actions */}
+        {isEditing && (
+          <div className="px-6 py-4 border-t bg-gray-50 flex justify-between items-center">
+            {bug.status === 'reported' && (
+              <button
+                onClick={handleDelete}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-1"
+              >
+                <X className="h-4 w-4" />
+                <span>Delete Bug</span>
+              </button>
+            )}
+            <div className="flex-1"></div>
             <button
-              onClick={handleDelete}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-1"
+              onClick={handleSaveEdit}
+              className="btn-primary flex items-center space-x-1"
             >
-              <X className="h-4 w-4" />
-              <span>Delete Bug</span>
+              <Save className="h-4 w-4" />
+              <span>Save Changes</span>
             </button>
           </div>
         )}
