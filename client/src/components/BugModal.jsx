@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { X, User, Clock, MessageSquare, Send, Edit3, Save, AlertCircle } from 'lucide-react';
+import MarkdownRenderer from './MarkdownRenderer';
+import RichTextEditor from './RichTextEditor';
 
 const priorityColors = {
   low: 'bg-green-100 text-green-800 border-green-200',
@@ -98,28 +100,13 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment }) => {
                   {bug.title}
                 </h3>
                 {bug.description && (
-                  <p className="text-gray-700 whitespace-pre-wrap">
-                    {bug.description}
-                  </p>
+                  <div className="text-gray-700">
+                    <MarkdownRenderer content={bug.description} />
+                  </div>
                 )}
               </div>
 
-              {bug.screenshots && bug.screenshots.length > 0 && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Screenshots</h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    {bug.screenshots.map((screenshot, index) => (
-                      <img
-                        key={index}
-                        src={screenshot}
-                        alt={`Screenshot ${index + 1}`}
-                        className="w-full h-48 object-cover rounded-lg border cursor-pointer hover:opacity-90"
-                        onClick={() => window.open(screenshot, '_blank')}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
+
 
               {/* Comments Section */}
               <div>
@@ -137,7 +124,9 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment }) => {
                           {format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}
                         </span>
                       </div>
-                      <p className="text-gray-700 whitespace-pre-wrap">{comment.content}</p>
+                      <div className="text-gray-700">
+                        <MarkdownRenderer content={comment.content} />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -151,13 +140,11 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment }) => {
                     className="input"
                     required
                   />
-                  <textarea
+                  <RichTextEditor
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Add a comment..."
+                    placeholder="Add a comment... You can paste images directly here!"
                     rows={3}
-                    className="textarea"
-                    required
                   />
                   <button
                     type="submit"

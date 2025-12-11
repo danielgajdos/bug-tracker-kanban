@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, Clock, User, Image } from 'lucide-react';
+import { AlertCircle, Clock, User } from 'lucide-react';
+import MarkdownRenderer from './MarkdownRenderer';
 
 const priorityColors = {
   low: 'bg-green-100 text-green-800 border-green-200',
@@ -22,9 +23,6 @@ const BugCard = ({ bug, onClick }) => {
             {bug.priority}
           </span>
         </div>
-        {bug.screenshots && bug.screenshots.length > 0 && (
-          <Image className="h-4 w-4 text-gray-400" />
-        )}
       </div>
       
       <h4 className="font-medium text-gray-900 mb-2 line-clamp-2">
@@ -32,9 +30,9 @@ const BugCard = ({ bug, onClick }) => {
       </h4>
       
       {bug.description && (
-        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-          {bug.description}
-        </p>
+        <div className="text-sm text-gray-600 mb-3 line-clamp-2">
+          <MarkdownRenderer content={bug.description} />
+        </div>
       )}
       
       <div className="flex items-center justify-between text-xs text-gray-500">

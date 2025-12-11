@@ -30,8 +30,8 @@ app.set('trust proxy', 1);
 
 // Whitelisted users
 const ALLOWED_USERS = [
-  'daniel.gajdos@external.issworld.com',
-  'marian.fedoronko@external.issworld.com'
+  'daniel.gajdos@aardwark.com',
+  'marian.fedoronko@aardwark.com'
 ];
 
 // Microsoft Auth Configuration
@@ -211,6 +211,18 @@ app.post('/auth/logout', (req, res) => {
   });
 });
 
+// Upload image from clipboard
+app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No image provided' });
+  }
+  
+  res.json({ 
+    url: `/uploads/${req.file.filename}`,
+    filename: req.file.filename
+  });
+});
+
 // API Routes
 app.get('/api/bugs', requireAuth, (req, res) => {
   db.all('SELECT * FROM bugs ORDER BY created_at DESC', (err, rows) => {
@@ -230,8 +242,12 @@ app.get('/api/bugs', requireAuth, (req, res) => {
 });
 
 app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), (req, res) => {
-  const { title, description, priority, reporter_name, reporter_email } = req.body;
+  const { title, description, priority } = req.body;
   const id = uuidv4();
+  
+  // Use authenticated user's info
+  const reporter_name = req.session.user.name;
+  const reporter_email = req.session.user.email;
   
   const screenshots = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
   
