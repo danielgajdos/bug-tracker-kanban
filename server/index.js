@@ -17,7 +17,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production' 
-      ? ["https://itwo.railway.app", process.env.CLIENT_URL]
+      ? ["https://itwodevqa.up.railway.app", "https://itwo.up.railway.app", process.env.CLIENT_URL]
       : "http://localhost:5173",
     methods: ["GET", "POST"],
     credentials: true
@@ -78,7 +78,7 @@ const requireAuth = (req, res, next) => {
 // Middleware
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ["https://itwo.up.railway.app", process.env.CLIENT_URL]
+    ? ["https://itwodevqa.up.railway.app", "https://itwo.up.railway.app", process.env.CLIENT_URL]
     : "http://localhost:5173",
   credentials: true
 }));

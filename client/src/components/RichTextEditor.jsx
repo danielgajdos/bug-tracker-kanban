@@ -7,20 +7,33 @@ const RichTextEditor = ({ value, onChange, placeholder, rows = 4, name }) => {
 
   const handlePaste = async (e) => {
     const items = e.clipboardData.items;
+    let hasImage = false;
     
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       
       if (item.type.indexOf('image') !== -1) {
+        hasImage = true;
         e.preventDefault();
         const file = item.getAsFile();
-        await uploadImage(file);
+        if (file) {
+          await uploadImage(file);
+        }
       }
+    }
+    
+    // If no image was found, let the default paste behavior happen
+    if (!hasImage) {
+      // Allow normal text paste
+      return;
     }
   };
 
   const uploadImage = async (file) => {
+    if (!file) return;
+    
     setUploading(true);
+    console.log('Uploading image:', file.name, file.type);
     
     try {
       const formData = new FormData();
@@ -32,29 +45,39 @@ const RichTextEditor = ({ value, onChange, placeholder, rows = 4, name }) => {
         body: formData
       });
       
+      console.log('Upload response status:', response.status);
+      
       if (response.ok) {
-        const { url } = await response.json();
+        const result = await response.json();
+        console.log('Upload result:', result);
+        const { url } = result;
         
         // Insert image markdown at cursor position
         const textarea = textareaRef.current;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const imageMarkdown = `![Image](${url})`;
+        const start = textarea.selectionStart || 0;
+        const end = textarea.selectionEnd || 0;
+        const imageMarkdown = `\n![Image](${url})\n`;
         
         const newValue = value.substring(0, start) + imageMarkdown + value.substring(end);
-        onChange({ target: { value: newValue } });
+        console.log('New value:', newValue);
+        
+        onChange({ target: { name: name, value: newValue } });
         
         // Move cursor after the inserted image
         setTimeout(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + imageMarkdown.length;
-          textarea.focus();
-        }, 0);
+          if (textarea) {
+            textarea.selectionStart = textarea.selectionEnd = start + imageMarkdown.length;
+            textarea.focus();
+          }
+        }, 100);
       } else {
-        throw new Error('Upload failed');
+        const errorText = await response.text();
+        console.error('Upload failed:', response.status, errorText);
+        throw new Error(`Upload failed: ${response.status}`);
       }
     } catch (error) {
       console.error('Image upload failed:', error);
-      alert('Failed to upload image. Please try again.');
+      alert(`Failed to upload image: ${error.message}`);
     } finally {
       setUploading(false);
     }
