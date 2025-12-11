@@ -1,0 +1,45 @@
+{
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.16/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.16",
+  "version": "1.0.0",
+  "id": "REPLACE_WITH_YOUR_TEAMS_APP_ID",
+  "packageName": "com.bugtracker.teamsbot",
+  "developer": {
+    "name": "Bug Tracker",
+    "websiteUrl": "https://itwodevqa.up.railway.app",
+    "privacyUrl": "https://itwodevqa.up.railway.app",
+    "termsOfUseUrl": "https://itwodevqa.up.railway.app"
+  },
+  "icons": {
+    "color": "icon-color.png",
+    "outline": "icon-outline.png"
+  },
+  "name": {
+    "short": "Bug Tracker Bot",
+    "full": "Bug Tracker Bot - Automatic Bug Reporting"
+  },
+  "description": {
+    "short": "Creates bug tickets from Teams messages",
+    "full": "Automatically creates bug tickets when daniel.gajdos@gmail.com is mentioned in Teams messages. Simply mention the email in your message along with bug details and screenshots."
+  },
+  "accentColor": "#3B82F6",
+  "bots": [
+    {
+      "botId": "REPLACE_WITH_YOUR_BOT_APP_ID",
+      "scopes": [
+        "personal",
+        "team",
+        "groupchat"
+      ],
+      "supportsFiles": true,
+      "isNotificationOnly": false
+    }
+  ],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "itwodevqa.up.railway.app"
+  ]
+}

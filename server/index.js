@@ -11,6 +11,9 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const XLSX = require('xlsx');
+const { BotFrameworkAdapter } = require('botbuilder');
+const TeamsIntegration = require('./teams-integration');
+const TeamsBugBot = require('./teams-bot');
 require('dotenv').config();
 
 const app = express();
@@ -116,6 +119,66 @@ const { db, initializeDatabase, getNextBugNumber } = require('./database');
 
 // Initialize database
 initializeDatabase();
+
+// Teams Integration Setup
+let teamsIntegration = null;
+let teamsBot = null;
+let botAdapter = null;
+
+if (process.env.TEAMS_APP_ID && process.env.TEAMS_APP_PASSWORD) {
+  // Initialize Bot Framework Adapter
+  botAdapter = new BotFrameworkAdapter({
+    appId: process.env.TEAMS_APP_ID,
+    appPassword: process.env.TEAMS_APP_PASSWORD
+  });
+
+  // Initialize Teams Integration
+  teamsIntegration = new TeamsIntegration({
+    clientId: process.env.TEAMS_CLIENT_ID || process.env.TEAMS_APP_ID,
+    clientSecret: process.env.TEAMS_CLIENT_SECRET || process.env.TEAMS_APP_PASSWORD,
+    tenantId: process.env.TEAMS_TENANT_ID || 'common'
+  });
+
+  // Initialize Teams Bot with bug creation callback
+  teamsBot = new TeamsBugBot(teamsIntegration, async (bugData) => {
+    try {
+      const id = uuidv4();
+      const bugNumber = await getNextBugNumber();
+      
+      const screenshots = bugData.screenshots || [];
+      
+      await db.execute(`
+        INSERT INTO bugs (id, bug_number, title, description, priority, reporter_name, reporter_email, screenshots)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `, [id, bugNumber, bugData.title, bugData.description, bugData.priority, bugData.reporter_name, bugData.reporter_email, JSON.stringify(screenshots)]);
+      
+      const newBug = {
+        id,
+        bug_number: bugNumber,
+        title: bugData.title,
+        description: bugData.description,
+        status: 'reported',
+        priority: bugData.priority,
+        reporter_name: bugData.reporter_name,
+        reporter_email: bugData.reporter_email,
+        assignee: null,
+        screenshots,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      io.emit('bugCreated', newBug);
+      return newBug;
+    } catch (error) {
+      console.error('Error creating bug from Teams:', error);
+      return null;
+    }
+  });
+
+  console.log('Teams integration initialized');
+} else {
+  console.log('Teams integration disabled - missing environment variables');
+}
 
 // File upload configuration
 const storage = multer.diskStorage({
@@ -234,6 +297,40 @@ app.delete('/api/bugs/:id', requireAuth, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Teams Bot Endpoint
+if (botAdapter && teamsBot) {
+  app.post('/api/teams/messages', (req, res) => {
+    botAdapter.processActivity(req, res, async (context) => {
+      await teamsBot.run(context);
+    });
+  });
+
+  // Teams webhook validation endpoint
+  app.post('/api/teams/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+    const validationToken = req.query.validationToken;
+    
+    if (validationToken) {
+      // Webhook validation
+      res.status(200).send(validationToken);
+      return;
+    }
+
+    // Process webhook notification
+    try {
+      const notification = JSON.parse(req.body);
+      console.log('Teams webhook notification:', notification);
+      
+      // Process the notification (this would trigger message processing)
+      // Implementation depends on your specific webhook setup
+      
+      res.status(200).send('OK');
+    } catch (error) {
+      console.error('Error processing Teams webhook:', error);
+      res.status(400).send('Bad Request');
+    }
+  });
+}
 
 // API Routes
 app.get('/api/bugs', requireAuth, async (req, res) => {
