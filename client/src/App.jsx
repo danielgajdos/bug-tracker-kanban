@@ -7,7 +7,7 @@ import Login from './components/Login';
 import { useAuth } from './hooks/useAuth';
 import { Plus, Bug, LogOut, User, Download } from 'lucide-react';
 
-const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
+const socket = io(import.meta.env.VITE_API_URL || window.location.origin || 'http://localhost:3001');
 
 function App() {
   const { user, loading: authLoading, logout, isAuthenticated } = useAuth();

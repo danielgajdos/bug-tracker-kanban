@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { X, User, Clock, MessageSquare, Send, AlertCircle } from 'lucide-react';
+import { X, User, Clock, MessageSquare, Send, AlertCircle, Edit3 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import RichTextEditor from './RichTextEditor';
 import EditableComment from './EditableComment';
