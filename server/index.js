@@ -97,32 +97,16 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use('/uploads', express.static(uploadsPath));
+app.use('/uploads', express.static('uploads'));
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// Create uploads directory - use persistent storage
-const uploadsPath = process.env.NODE_ENV === 'production' 
-  ? '/app/data/uploads' 
-  : 'uploads';
-
-if (!fs.existsSync(uploadsPath)) {
-  fs.mkdirSync(uploadsPath, { recursive: true });
+// Create uploads directory
+if (!fs.existsSync('uploads')) {
+  fs.mkdirSync('uploads');
 }
 
-// Database setup - use persistent storage path
-const dbPath = process.env.NODE_ENV === 'production' 
-  ? '/app/data/bugtracker.db' 
-  : 'bugtracker.db';
-
-// Ensure data directory exists in production
-if (process.env.NODE_ENV === 'production') {
-  const dataDir = '/app/data';
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-}
-
-const db = new sqlite3.Database(dbPath);
+// Database setup
+const db = new sqlite3.Database('bugtracker.db');
 
 // Initialize database tables
 db.serialize(() => {
@@ -154,7 +138,7 @@ db.serialize(() => {
 // File upload configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, uploadsPath + '/');
+    cb(null, 'uploads/');
   },
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`;
