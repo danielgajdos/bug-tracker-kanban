@@ -112,52 +112,9 @@ if (!fs.existsSync('uploads')) {
 }
 
 // Database setup
-const dbConfig = {
-  host: process.env.MYSQL_HOST || 'localhost',
-  port: process.env.MYSQL_PORT || 3306,
-  user: process.env.MYSQL_USER || 'root',
-  password: process.env.MYSQL_PASSWORD || '',
-  database: process.env.MYSQL_DATABASE || 'bugtracker',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0
-};
+const { db, initializeDatabase } = require('./database');
 
-const db = mysql.createPool(dbConfig);
-
-// Initialize database tables
-async function initializeDatabase() {
-  try {
-    await db.execute(`CREATE TABLE IF NOT EXISTS bugs (
-      id VARCHAR(36) PRIMARY KEY,
-      title TEXT NOT NULL,
-      description TEXT,
-      status VARCHAR(20) DEFAULT 'reported',
-      priority VARCHAR(20) DEFAULT 'medium',
-      reporter_name VARCHAR(255) NOT NULL,
-      reporter_email VARCHAR(255) NOT NULL,
-      assignee VARCHAR(255),
-      screenshots JSON,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-    )`);
-
-    await db.execute(`CREATE TABLE IF NOT EXISTS comments (
-      id VARCHAR(36) PRIMARY KEY,
-      bug_id VARCHAR(36) NOT NULL,
-      author VARCHAR(255) NOT NULL,
-      content TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      FOREIGN KEY (bug_id) REFERENCES bugs (id) ON DELETE CASCADE
-    )`);
-
-    console.log('Database tables initialized successfully');
-  } catch (error) {
-    console.error('Database initialization error:', error);
-  }
-}
-
+// Initialize database
 initializeDatabase();
 
 // File upload configuration
@@ -247,15 +204,13 @@ app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) =>
 });
 
 // Delete bug (only for Reported status)
-app.delete('/api/bugs/:id', requireAuth, (req, res) => {
-  const { id } = req.params;
-  
-  // First check if bug exists and is in 'reported' status
-  db.get('SELECT * FROM bugs WHERE id = ?', [id], (err, bug) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.delete('/api/bugs/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // First check if bug exists and is in 'reported' status
+    const [rows] = await db.execute('SELECT * FROM bugs WHERE id = ?', [id]);
+    const bug = rows[0];
     
     if (!bug) {
       res.status(404).json({ error: 'Bug not found' });
@@ -267,25 +222,17 @@ app.delete('/api/bugs/:id', requireAuth, (req, res) => {
       return;
     }
     
-    // Delete comments first
-    db.run('DELETE FROM comments WHERE bug_id = ?', [id], (err) => {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      
-      // Delete the bug
-      db.run('DELETE FROM bugs WHERE id = ?', [id], function(err) {
-        if (err) {
-          res.status(500).json({ error: err.message });
-          return;
-        }
-        
-        io.emit('bugDeleted', { id });
-        res.json({ message: 'Bug deleted successfully' });
-      });
-    });
-  });
+    // Delete comments first (CASCADE should handle this, but let's be explicit)
+    await db.execute('DELETE FROM comments WHERE bug_id = ?', [id]);
+    
+    // Delete the bug
+    await db.execute('DELETE FROM bugs WHERE id = ?', [id]);
+    
+    io.emit('bugDeleted', { id });
+    res.json({ message: 'Bug deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // API Routes
@@ -372,36 +319,29 @@ app.put('/api/bugs/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.get('/api/bugs/:id/comments', requireAuth, (req, res) => {
-  const { id } = req.params;
-  
-  db.all('SELECT * FROM comments WHERE bug_id = ? ORDER BY created_at ASC', [id], (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.get('/api/bugs/:id/comments', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [rows] = await db.execute('SELECT * FROM comments WHERE bug_id = ? ORDER BY created_at ASC', [id]);
     res.json(rows);
-  });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
-app.post('/api/bugs/:id/comments', requireAuth, (req, res) => {
-  const { id } = req.params;
-  const { content } = req.body;
-  const commentId = uuidv4();
-  
-  // Use authenticated user's info
-  const author = req.user.name;
-  
-  const stmt = db.prepare(`
-    INSERT INTO comments (id, bug_id, author, content)
-    VALUES (?, ?, ?, ?)
-  `);
-  
-  stmt.run([commentId, id, author, content], function(err) {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.post('/api/bugs/:id/comments', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    const commentId = uuidv4();
+    
+    // Use authenticated user's info
+    const author = req.user.name;
+    
+    await db.execute(`
+      INSERT INTO comments (id, bug_id, author, content)
+      VALUES (?, ?, ?, ?)
+    `, [commentId, id, author, content]);
     
     const newComment = {
       id: commentId,
@@ -413,22 +353,20 @@ app.post('/api/bugs/:id/comments', requireAuth, (req, res) => {
     
     io.emit('commentAdded', newComment);
     res.json(newComment);
-  });
-  
-  stmt.finalize();
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Update comment
-app.put('/api/bugs/:bugId/comments/:commentId', requireAuth, (req, res) => {
-  const { bugId, commentId } = req.params;
-  const { content } = req.body;
-  
-  // First check if the comment exists and belongs to the current user
-  db.get('SELECT * FROM comments WHERE id = ? AND bug_id = ?', [commentId, bugId], (err, comment) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.put('/api/bugs/:bugId/comments/:commentId', requireAuth, async (req, res) => {
+  try {
+    const { bugId, commentId } = req.params;
+    const { content } = req.body;
+    
+    // First check if the comment exists and belongs to the current user
+    const [rows] = await db.execute('SELECT * FROM comments WHERE id = ? AND bug_id = ?', [commentId, bugId]);
+    const comment = rows[0];
     
     if (!comment) {
       res.status(404).json({ error: 'Comment not found' });
@@ -442,56 +380,46 @@ app.put('/api/bugs/:bugId/comments/:commentId', requireAuth, (req, res) => {
     }
     
     // Update the comment
-    const stmt = db.prepare(`
+    await db.execute(`
       UPDATE comments 
       SET content = ?
       WHERE id = ? AND bug_id = ?
-    `);
+    `, [content, commentId, bugId]);
     
-    stmt.run([content, commentId, bugId], function(err) {
-      if (err) {
-        res.status(500).json({ error: err.message });
-        return;
-      }
-      
-      const updatedComment = {
-        ...comment,
-        content,
-        updated_at: new Date().toISOString()
-      };
-      
-      io.emit('commentUpdated', updatedComment);
-      res.json(updatedComment);
-    });
+    const updatedComment = {
+      ...comment,
+      content,
+      updated_at: new Date().toISOString()
+    };
     
-    stmt.finalize();
-  });
+    io.emit('commentUpdated', updatedComment);
+    res.json(updatedComment);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Export bugs to Excel
-app.get('/api/export/excel', requireAuth, (req, res) => {
-  db.all(`
-    SELECT 
-      b.id,
-      b.title,
-      b.description,
-      b.status,
-      b.priority,
-      b.reporter_name,
-      b.reporter_email,
-      b.assignee,
-      b.created_at,
-      b.updated_at,
-      GROUP_CONCAT(c.content, ' | ') as comments
-    FROM bugs b
-    LEFT JOIN comments c ON b.id = c.bug_id
-    GROUP BY b.id
-    ORDER BY b.created_at DESC
-  `, (err, rows) => {
-    if (err) {
-      res.status(500).json({ error: err.message });
-      return;
-    }
+app.get('/api/export/excel', requireAuth, async (req, res) => {
+  try {
+    const [rows] = await db.execute(`
+      SELECT 
+        b.id,
+        b.title,
+        b.description,
+        b.status,
+        b.priority,
+        b.reporter_name,
+        b.reporter_email,
+        b.assignee,
+        b.created_at,
+        b.updated_at,
+        GROUP_CONCAT(c.content SEPARATOR ' | ') as comments
+      FROM bugs b
+      LEFT JOIN comments c ON b.id = c.bug_id
+      GROUP BY b.id
+      ORDER BY b.created_at DESC
+    `);
 
     // Prepare data for Excel
     const excelData = rows.map(bug => ({
@@ -518,7 +446,7 @@ app.get('/api/export/excel', requireAuth, (req, res) => {
       { wch: 30 }, // Title
       { wch: 50 }, // Description
       { wch: 12 }, // Status
-      { wch: 10 }, // Priority
+      { wch: 12 }, // Priority
       { wch: 20 }, // Reporter Name
       { wch: 25 }, // Reporter Email
       { wch: 20 }, // Assignee
@@ -540,7 +468,9 @@ app.get('/api/export/excel', requireAuth, (req, res) => {
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     
     res.send(excelBuffer);
-  });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // Serve React app for all other routes
