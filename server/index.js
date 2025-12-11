@@ -10,6 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const XLSX = require('xlsx');
 require('dotenv').config();
 
 const app = express();
@@ -96,16 +97,32 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
-app.use('/uploads', express.static('uploads'));
+app.use('/uploads', express.static(uploadsPath));
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// Create uploads directory
-if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads');
+// Create uploads directory - use persistent storage
+const uploadsPath = process.env.NODE_ENV === 'production' 
+  ? '/app/data/uploads' 
+  : 'uploads';
+
+if (!fs.existsSync(uploadsPath)) {
+  fs.mkdirSync(uploadsPath, { recursive: true });
 }
 
-// Database setup
-const db = new sqlite3.Database('bugtracker.db');
+// Database setup - use persistent storage path
+const dbPath = process.env.NODE_ENV === 'production' 
+  ? '/app/data/bugtracker.db' 
+  : 'bugtracker.db';
+
+// Ensure data directory exists in production
+if (process.env.NODE_ENV === 'production') {
+  const dataDir = '/app/data';
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+}
+
+const db = new sqlite3.Database(dbPath);
 
 // Initialize database tables
 db.serialize(() => {
@@ -137,7 +154,7 @@ db.serialize(() => {
 // File upload configuration
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/');
+    cb(null, uploadsPath + '/');
   },
   filename: (req, file, cb) => {
     const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(file.originalname)}`;
@@ -459,6 +476,81 @@ app.put('/api/bugs/:bugId/comments/:commentId', requireAuth, (req, res) => {
     });
     
     stmt.finalize();
+  });
+});
+
+// Export bugs to Excel
+app.get('/api/export/excel', requireAuth, (req, res) => {
+  db.all(`
+    SELECT 
+      b.id,
+      b.title,
+      b.description,
+      b.status,
+      b.priority,
+      b.reporter_name,
+      b.reporter_email,
+      b.assignee,
+      b.created_at,
+      b.updated_at,
+      GROUP_CONCAT(c.content, ' | ') as comments
+    FROM bugs b
+    LEFT JOIN comments c ON b.id = c.bug_id
+    GROUP BY b.id
+    ORDER BY b.created_at DESC
+  `, (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+
+    // Prepare data for Excel
+    const excelData = rows.map(bug => ({
+      'Bug ID': bug.id,
+      'Title': bug.title,
+      'Description': bug.description || '',
+      'Status': bug.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
+      'Priority': bug.priority.charAt(0).toUpperCase() + bug.priority.slice(1),
+      'Reporter Name': bug.reporter_name,
+      'Reporter Email': bug.reporter_email,
+      'Assignee': bug.assignee || 'Unassigned',
+      'Created Date': new Date(bug.created_at).toLocaleDateString(),
+      'Updated Date': new Date(bug.updated_at).toLocaleDateString(),
+      'Comments': bug.comments || 'No comments'
+    }));
+
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(excelData);
+
+    // Auto-size columns
+    const colWidths = [
+      { wch: 15 }, // Bug ID
+      { wch: 30 }, // Title
+      { wch: 50 }, // Description
+      { wch: 12 }, // Status
+      { wch: 10 }, // Priority
+      { wch: 20 }, // Reporter Name
+      { wch: 25 }, // Reporter Email
+      { wch: 20 }, // Assignee
+      { wch: 12 }, // Created Date
+      { wch: 12 }, // Updated Date
+      { wch: 40 }  // Comments
+    ];
+    ws['!cols'] = colWidths;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Bug Reports');
+
+    // Generate Excel file
+    const excelBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // Set headers for file download
+    const filename = `bug-reports-${new Date().toISOString().split('T')[0]}.xlsx`;
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    
+    res.send(excelBuffer);
   });
 });
 

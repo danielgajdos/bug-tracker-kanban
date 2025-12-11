@@ -5,7 +5,7 @@ import BugForm from './components/BugForm';
 import BugModal from './components/BugModal';
 import Login from './components/Login';
 import { useAuth } from './hooks/useAuth';
-import { Plus, Bug, LogOut, User } from 'lucide-react';
+import { Plus, Bug, LogOut, User, Download } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
 
@@ -183,6 +183,31 @@ function App() {
     }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      const response = await fetch('/api/export/excel', {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `bug-reports-${new Date().toISOString().split('T')[0]}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } else {
+        throw new Error('Export failed');
+      }
+    } catch (error) {
+      console.error('Error exporting to Excel:', error);
+      alert('Failed to export to Excel. Please try again.');
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -215,6 +240,13 @@ function App() {
               >
                 <Plus className="h-4 w-4" />
                 <span>Report Bug</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <Download className="h-4 w-4" />
+                <span>Export Excel</span>
               </button>
               <button
                 onClick={logout}
