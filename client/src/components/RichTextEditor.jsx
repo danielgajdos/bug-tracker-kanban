@@ -57,11 +57,16 @@ const RichTextEditor = ({ value, onChange, placeholder, rows = 4, name }) => {
         const start = textarea.selectionStart || 0;
         const end = textarea.selectionEnd || 0;
         const imageMarkdown = `\n![Image](${url})\n`;
+        console.log('Inserting image markdown:', imageMarkdown);
         
         const newValue = value.substring(0, start) + imageMarkdown + value.substring(end);
         console.log('New value:', newValue);
         
         onChange({ target: { name: name, value: newValue } });
+        
+        // Force a re-render by triggering the change event
+        const event = new Event('input', { bubbles: true });
+        textarea.dispatchEvent(event);
         
         // Move cursor after the inserted image
         setTimeout(() => {

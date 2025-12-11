@@ -113,8 +113,9 @@ function App() {
           bug.id === bugId ? updatedBug : bug
         ));
         
+        // Refresh the selected bug with comments to show all updates
         if (selectedBug && selectedBug.id === bugId) {
-          setSelectedBug(prev => ({ ...prev, ...updatedBug }));
+          fetchBugDetails(bugId);
         }
       }
     } catch (error) {
@@ -134,7 +135,8 @@ function App() {
       });
       
       if (response.ok) {
-        // Comment will be added via socket event
+        // Refresh the bug details immediately to show new comment
+        fetchBugDetails(bugId);
       }
     } catch (error) {
       console.error('Error adding comment:', error);

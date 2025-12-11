@@ -326,15 +326,15 @@ app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), (req, res) =>
 
 app.put('/api/bugs/:id', requireAuth, (req, res) => {
   const { id } = req.params;
-  const { status, assignee, priority } = req.body;
+  const { title, description, status, assignee, priority } = req.body;
   
   const stmt = db.prepare(`
     UPDATE bugs 
-    SET status = ?, assignee = ?, priority = ?, updated_at = CURRENT_TIMESTAMP
+    SET title = ?, description = ?, status = ?, assignee = ?, priority = ?, updated_at = CURRENT_TIMESTAMP
     WHERE id = ?
   `);
   
-  stmt.run([status, assignee, priority, id], function(err) {
+  stmt.run([title, description, status, assignee, priority, id], function(err) {
     if (err) {
       res.status(500).json({ error: err.message });
       return;
