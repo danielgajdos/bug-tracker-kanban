@@ -80,6 +80,7 @@ const BugForm = ({ onClose, onSubmit }) => {
               Description
             </label>
             <RichTextEditor
+              name="description"
               value={formData.description}
               onChange={handleChange}
               placeholder="Detailed description of the bug, steps to reproduce, expected vs actual behavior...

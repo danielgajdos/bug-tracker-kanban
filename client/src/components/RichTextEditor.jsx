@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Image, Loader } from 'lucide-react';
 
-const RichTextEditor = ({ value, onChange, placeholder, rows = 4 }) => {
+const RichTextEditor = ({ value, onChange, placeholder, rows = 4, name }) => {
   const [uploading, setUploading] = useState(false);
   const textareaRef = useRef(null);
 
@@ -79,6 +79,7 @@ const RichTextEditor = ({ value, onChange, placeholder, rows = 4 }) => {
     <div className="relative">
       <textarea
         ref={textareaRef}
+        name={name}
         value={value}
         onChange={onChange}
         onPaste={handlePaste}
