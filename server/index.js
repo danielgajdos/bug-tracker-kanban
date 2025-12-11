@@ -97,6 +97,12 @@ app.use(session({
 
 app.use(passport.initialize());
 app.use(passport.session());
+
+// Health check endpoint (no auth required) - must be before static files
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 app.use('/uploads', express.static('uploads'));
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
@@ -261,11 +267,6 @@ app.delete('/api/bugs/:id', requireAuth, (req, res) => {
       });
     });
   });
-});
-
-// Health check endpoint (no auth required)
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
 // API Routes
