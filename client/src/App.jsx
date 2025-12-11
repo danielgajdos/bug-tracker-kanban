@@ -30,6 +30,13 @@ function App() {
       ));
     });
 
+    socket.on('bugDeleted', (deletedBug) => {
+      setBugs(prev => prev.filter(bug => bug.id !== deletedBug.id));
+      if (selectedBug && selectedBug.id === deletedBug.id) {
+        setSelectedBug(null);
+      }
+    });
+
     socket.on('commentAdded', (comment) => {
       // Refresh the selected bug if it's open
       if (selectedBug && selectedBug.id === comment.bug_id) {
@@ -40,6 +47,7 @@ function App() {
     return () => {
       socket.off('bugCreated');
       socket.off('bugUpdated');
+      socket.off('bugDeleted');
       socket.off('commentAdded');
     };
   }, [selectedBug]);
@@ -133,6 +141,26 @@ function App() {
     }
   };
 
+  const handleDeleteBug = async (bugId) => {
+    try {
+      const response = await fetch(`/api/bugs/${bugId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      
+      if (response.ok) {
+        setBugs(prev => prev.filter(bug => bug.id !== bugId));
+        setSelectedBug(null);
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Failed to delete bug');
+      }
+    } catch (error) {
+      console.error('Error deleting bug:', error);
+      alert('Failed to delete bug');
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -202,6 +230,7 @@ function App() {
           onClose={() => setSelectedBug(null)}
           onUpdate={handleBugUpdate}
           onAddComment={handleAddComment}
+          onDelete={handleDeleteBug}
         />
       )}
     </div>

@@ -219,6 +219,48 @@ app.post('/api/upload-image', requireAuth, upload.single('image'), (req, res) =>
   });
 });
 
+// Delete bug (only for Reported status)
+app.delete('/api/bugs/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  
+  // First check if bug exists and is in 'reported' status
+  db.get('SELECT * FROM bugs WHERE id = ?', [id], (err, bug) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    if (!bug) {
+      res.status(404).json({ error: 'Bug not found' });
+      return;
+    }
+    
+    if (bug.status !== 'reported') {
+      res.status(403).json({ error: 'Can only delete bugs in Reported status' });
+      return;
+    }
+    
+    // Delete comments first
+    db.run('DELETE FROM comments WHERE bug_id = ?', [id], (err) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      // Delete the bug
+      db.run('DELETE FROM bugs WHERE id = ?', [id], function(err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        
+        io.emit('bugDeleted', { id });
+        res.json({ message: 'Bug deleted successfully' });
+      });
+    });
+  });
+});
+
 // API Routes
 app.get('/api/bugs', requireAuth, (req, res) => {
   db.all('SELECT * FROM bugs ORDER BY created_at DESC', (err, rows) => {
@@ -337,8 +379,11 @@ app.get('/api/bugs/:id/comments', requireAuth, (req, res) => {
 
 app.post('/api/bugs/:id/comments', requireAuth, (req, res) => {
   const { id } = req.params;
-  const { author, content } = req.body;
+  const { content } = req.body;
   const commentId = uuidv4();
+  
+  // Use authenticated user's info
+  const author = req.user.name;
   
   const stmt = db.prepare(`
     INSERT INTO comments (id, bug_id, author, content)
