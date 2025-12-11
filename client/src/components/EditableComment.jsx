@@ -49,7 +49,7 @@ const EditableComment = ({ comment, bugStatus, onUpdate }) => {
   };
 
   return (
-    <div className="bg-gray-50 rounded-lg p-4">
+    <div className="bg-gray-50 rounded-lg p-4 group relative">
       <div className="flex items-center justify-between mb-2">
         <span className="font-medium text-gray-900">{comment.author}</span>
         <div className="flex items-center space-x-2">
@@ -59,15 +59,6 @@ const EditableComment = ({ comment, bugStatus, onUpdate }) => {
               <span className="ml-1">(edited)</span>
             )}
           </span>
-          {canEdit && !isEditing && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="text-gray-400 hover:text-gray-600 p-1"
-              title="Edit comment"
-            >
-              <Edit3 className="h-3 w-3" />
-            </button>
-          )}
         </div>
       </div>
       
@@ -99,8 +90,17 @@ const EditableComment = ({ comment, bugStatus, onUpdate }) => {
           </div>
         </div>
       ) : (
-        <div className="text-gray-700">
+        <div className="text-gray-700 relative">
           <MarkdownRenderer content={comment.content} />
+          {canEdit && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="absolute -right-6 top-0 text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Edit comment"
+            >
+              <Edit3 className="h-3 w-3" />
+            </button>
+          )}
         </div>
       )}
     </div>
