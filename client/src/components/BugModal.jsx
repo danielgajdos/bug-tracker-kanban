@@ -160,41 +160,43 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
 
 
 
-              {/* Comments Section */}
-              <div>
-                <h4 className="font-medium text-gray-900 mb-4 flex items-center space-x-2">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Comments ({bug.comments?.length || 0})</span>
-                </h4>
+              {/* Comments Section - Only show when not editing */}
+              {!isEditing && (
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-4 flex items-center space-x-2">
+                    <MessageSquare className="h-4 w-4" />
+                    <span>Comments ({bug.comments?.length || 0})</span>
+                  </h4>
 
-                <div className="space-y-4 mb-6">
-                  {comments.map(comment => (
-                    <EditableComment
-                      key={comment.id}
-                      comment={comment}
-                      bugStatus={bug.status}
-                      onUpdate={handleCommentUpdate}
+                  <div className="space-y-4 mb-6">
+                    {comments.map(comment => (
+                      <EditableComment
+                        key={comment.id}
+                        comment={comment}
+                        bugStatus={bug.status}
+                        onUpdate={handleCommentUpdate}
+                      />
+                    ))}
+                  </div>
+
+                  <form onSubmit={handleAddComment} className="space-y-3">
+                    <RichTextEditor
+                      name="comment"
+                      value={newComment}
+                      onChange={(e) => setNewComment(e.target.value)}
+                      placeholder="Add a comment... You can paste images directly here!"
+                      rows={2}
                     />
-                  ))}
+                    <button
+                      type="submit"
+                      className="btn-primary flex items-center space-x-2"
+                    >
+                      <Send className="h-4 w-4" />
+                      <span>Add Comment</span>
+                    </button>
+                  </form>
                 </div>
-
-                <form onSubmit={handleAddComment} className="space-y-3">
-                  <RichTextEditor
-                    name="comment"
-                    value={newComment}
-                    onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Add a comment... You can paste images directly here!"
-                    rows={2}
-                  />
-                  <button
-                    type="submit"
-                    className="btn-primary flex items-center space-x-2"
-                  >
-                    <Send className="h-4 w-4" />
-                    <span>Add Comment</span>
-                  </button>
-                </form>
-              </div>
+              )}
             </div>
 
             {/* Sidebar */}
