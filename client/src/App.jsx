@@ -3,11 +3,14 @@ import { io } from 'socket.io-client';
 import KanbanBoard from './components/KanbanBoard';
 import BugForm from './components/BugForm';
 import BugModal from './components/BugModal';
-import { Plus, Bug } from 'lucide-react';
+import Login from './components/Login';
+import { useAuth } from './hooks/useAuth';
+import { Plus, Bug, LogOut, User } from 'lucide-react';
 
 const socket = io(import.meta.env.VITE_API_URL || 'http://localhost:3001');
 
 function App() {
+  const { user, loading: authLoading, logout, isAuthenticated } = useAuth();
   const [bugs, setBugs] = useState([]);
   const [showBugForm, setShowBugForm] = useState(false);
   const [selectedBug, setSelectedBug] = useState(null);
@@ -43,9 +46,16 @@ function App() {
 
   const fetchBugs = async () => {
     try {
-      const response = await fetch('/api/bugs');
-      const data = await response.json();
-      setBugs(data);
+      const response = await fetch('/api/bugs', {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setBugs(data);
+      } else if (response.status === 401) {
+        // User not authenticated, will be handled by useAuth
+        setBugs([]);
+      }
     } catch (error) {
       console.error('Error fetching bugs:', error);
     } finally {
@@ -56,16 +66,18 @@ function App() {
   const fetchBugDetails = async (bugId) => {
     try {
       const [bugResponse, commentsResponse] = await Promise.all([
-        fetch(`/api/bugs`),
-        fetch(`/api/bugs/${bugId}/comments`)
+        fetch(`/api/bugs`, { credentials: 'include' }),
+        fetch(`/api/bugs/${bugId}/comments`, { credentials: 'include' })
       ]);
       
-      const bugsData = await bugResponse.json();
-      const commentsData = await commentsResponse.json();
-      
-      const bug = bugsData.find(b => b.id === bugId);
-      if (bug) {
-        setSelectedBug({ ...bug, comments: commentsData });
+      if (bugResponse.ok && commentsResponse.ok) {
+        const bugsData = await bugResponse.json();
+        const commentsData = await commentsResponse.json();
+        
+        const bug = bugsData.find(b => b.id === bugId);
+        if (bug) {
+          setSelectedBug({ ...bug, comments: commentsData });
+        }
       }
     } catch (error) {
       console.error('Error fetching bug details:', error);
@@ -83,6 +95,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(updates),
       });
       
@@ -108,6 +121,7 @@ function App() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(comment),
       });
       
@@ -119,12 +133,16 @@ function App() {
     }
   };
 
-  if (loading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    return <Login />;
   }
 
   return (
@@ -136,13 +154,26 @@ function App() {
               <Bug className="h-8 w-8 text-primary-500" />
               <h1 className="text-xl font-semibold text-gray-900">Bug Tracker</h1>
             </div>
-            <button
-              onClick={() => setShowBugForm(true)}
-              className="btn-primary flex items-center space-x-2"
-            >
-              <Plus className="h-4 w-4" />
-              <span>Report Bug</span>
-            </button>
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <User className="h-4 w-4" />
+                <span>{user.name}</span>
+              </div>
+              <button
+                onClick={() => setShowBugForm(true)}
+                className="btn-primary flex items-center space-x-2"
+              >
+                <Plus className="h-4 w-4" />
+                <span>Report Bug</span>
+              </button>
+              <button
+                onClick={logout}
+                className="btn-secondary flex items-center space-x-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </button>
+            </div>
           </div>
         </div>
       </header>

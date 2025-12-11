@@ -52,6 +52,7 @@ const BugForm = ({ onClose, onSubmit }) => {
 
       const response = await fetch('/api/bugs', {
         method: 'POST',
+        credentials: 'include',
         body: formDataToSend
       });
 

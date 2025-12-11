@@ -7,6 +7,8 @@ const http = require('http');
 const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
+const session = require('express-session');
+const { ConfidentialClientApplication } = require('@azure/msal-node');
 require('dotenv').config();
 
 const app = express();
@@ -26,9 +28,50 @@ const PORT = process.env.PORT || 3001;
 // Trust Railway proxy
 app.set('trust proxy', 1);
 
+// Whitelisted users
+const ALLOWED_USERS = [
+  'daniel.gajdos@external.issworld.com',
+  'marian.fedoronko@external.issworld.com'
+];
+
+// Microsoft Auth Configuration
+const msalConfig = {
+  auth: {
+    clientId: process.env.AZURE_CLIENT_ID || 'your-client-id',
+    clientSecret: process.env.AZURE_CLIENT_SECRET || 'your-client-secret',
+    authority: 'https://login.microsoftonline.com/common'
+  }
+};
+
+const cca = new ConfidentialClientApplication(msalConfig);
+
+// Auth middleware
+const requireAuth = (req, res, next) => {
+  if (req.session.user) {
+    next();
+  } else {
+    res.status(401).json({ error: 'Authentication required' });
+  }
+};
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ["https://itwo.up.railway.app", process.env.CLIENT_URL]
+    : "http://localhost:5173",
+  credentials: true
+}));
 app.use(express.json());
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
 app.use('/uploads', express.static('uploads'));
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
@@ -98,8 +141,78 @@ io.on('connection', (socket) => {
   });
 });
 
+// Auth Routes
+app.get('/auth/login', (req, res) => {
+  const authCodeUrlParameters = {
+    scopes: ['user.read'],
+    redirectUri: `${req.protocol}://${req.get('host')}/auth/callback`,
+  };
+
+  cca.getAuthCodeUrl(authCodeUrlParameters).then((response) => {
+    res.redirect(response);
+  }).catch((error) => {
+    console.error('Auth URL error:', error);
+    res.status(500).json({ error: 'Authentication error' });
+  });
+});
+
+app.get('/auth/callback', (req, res) => {
+  const tokenRequest = {
+    code: req.query.code,
+    scopes: ['user.read'],
+    redirectUri: `${req.protocol}://${req.get('host')}/auth/callback`,
+  };
+
+  cca.acquireTokenByCode(tokenRequest).then((response) => {
+    // Get user info from token
+    const userEmail = response.account.username;
+    
+    // Check if user is in whitelist
+    if (!ALLOWED_USERS.includes(userEmail)) {
+      return res.status(403).send(`
+        <html>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h2>Access Denied</h2>
+            <p>Your account (${userEmail}) is not authorized to access this application.</p>
+            <p>Please contact an administrator if you believe this is an error.</p>
+          </body>
+        </html>
+      `);
+    }
+
+    // Store user in session
+    req.session.user = {
+      email: userEmail,
+      name: response.account.name || userEmail,
+      id: response.account.homeAccountId
+    };
+
+    res.redirect('/');
+  }).catch((error) => {
+    console.error('Token acquisition error:', error);
+    res.status(500).json({ error: 'Authentication failed' });
+  });
+});
+
+app.get('/auth/user', (req, res) => {
+  if (req.session.user) {
+    res.json(req.session.user);
+  } else {
+    res.status(401).json({ error: 'Not authenticated' });
+  }
+});
+
+app.post('/auth/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).json({ error: 'Logout failed' });
+    }
+    res.json({ message: 'Logged out successfully' });
+  });
+});
+
 // API Routes
-app.get('/api/bugs', (req, res) => {
+app.get('/api/bugs', requireAuth, (req, res) => {
   db.all('SELECT * FROM bugs ORDER BY created_at DESC', (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -116,7 +229,7 @@ app.get('/api/bugs', (req, res) => {
   });
 });
 
-app.post('/api/bugs', upload.array('screenshots', 5), (req, res) => {
+app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), (req, res) => {
   const { title, description, priority, reporter_name, reporter_email } = req.body;
   const id = uuidv4();
   
@@ -157,7 +270,7 @@ app.post('/api/bugs', upload.array('screenshots', 5), (req, res) => {
   stmt.finalize();
 });
 
-app.put('/api/bugs/:id', (req, res) => {
+app.put('/api/bugs/:id', requireAuth, (req, res) => {
   const { id } = req.params;
   const { status, assignee, priority } = req.body;
   
@@ -198,7 +311,7 @@ app.put('/api/bugs/:id', (req, res) => {
   stmt.finalize();
 });
 
-app.get('/api/bugs/:id/comments', (req, res) => {
+app.get('/api/bugs/:id/comments', requireAuth, (req, res) => {
   const { id } = req.params;
   
   db.all('SELECT * FROM comments WHERE bug_id = ? ORDER BY created_at ASC', [id], (err, rows) => {
@@ -210,7 +323,7 @@ app.get('/api/bugs/:id/comments', (req, res) => {
   });
 });
 
-app.post('/api/bugs/:id/comments', (req, res) => {
+app.post('/api/bugs/:id/comments', requireAuth, (req, res) => {
   const { id } = req.params;
   const { author, content } = req.body;
   const commentId = uuidv4();
