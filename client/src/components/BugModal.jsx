@@ -4,8 +4,8 @@ import { X, User, Clock, MessageSquare, Send, AlertCircle, Edit3 } from 'lucide-
 import MarkdownRenderer from './MarkdownRenderer';
 import RichTextEditor from './RichTextEditor';
 import EditableComment from './EditableComment';
-import InlineEditText from './InlineEditText';
-import InlineEditSelect from './InlineEditSelect';
+import ClickToEdit from './ClickToEdit';
+import ClickToEditSelect from './ClickToEditSelect';
 import DescriptionEditor from './DescriptionEditor';
 
 const priorityColors = {
@@ -87,17 +87,27 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
               {bug.bug_number && (
                 <div className="text-sm text-gray-500 font-mono mb-1">{bug.bug_number}</div>
               )}
-              <h2 className="text-xl font-semibold text-gray-900">{bug.title}</h2>
+              <ClickToEdit
+                value={bug.title}
+                onSave={(value) => handleFieldUpdate('title', value)}
+                placeholder="Bug title..."
+                canEdit={bug.status !== 'resolved'}
+                className="text-xl font-semibold text-gray-900"
+              >
+                <h2 className="text-xl font-semibold text-gray-900 hover:bg-gray-50 px-2 py-1 rounded transition-colors">
+                  {bug.title}
+                </h2>
+              </ClickToEdit>
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <InlineEditSelect
+            <ClickToEditSelect
               value={bug.priority}
               options={priorityOptions}
               onSave={(value) => handleFieldUpdate('priority', value)}
               canEdit={bug.status !== 'resolved'}
               renderValue={(value) => (
-                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${priorityColors[value]}`}>
+                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${priorityColors[value]} hover:bg-opacity-80 transition-colors`}>
                   {value.charAt(0).toUpperCase() + value.slice(1)}
                 </span>
               )}
