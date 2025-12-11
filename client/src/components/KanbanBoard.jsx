@@ -20,21 +20,40 @@ const KanbanBoard = ({ bugs, onBugClick, onBugUpdate }) => {
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
-    const { draggableId, destination } = result;
-    const newStatus = destination.droppableId;
+    const { draggableId, source, destination } = result;
+    const sourceStatus = source.droppableId;
+    const destStatus = destination.droppableId;
     
     const bug = bugs.find(b => b.id === draggableId);
-    if (bug && bug.status !== newStatus) {
+    if (!bug) return;
+
+    // If moving within the same column, just reorder locally
+    if (sourceStatus === destStatus) {
+      const columnBugs = optimisticBugs.filter(b => b.status === sourceStatus);
+      const reorderedBugs = Array.from(columnBugs);
+      const [removed] = reorderedBugs.splice(source.index, 1);
+      reorderedBugs.splice(destination.index, 0, removed);
+      
+      // Update optimistic state with new order
+      setOptimisticBugs(prev => {
+        const otherBugs = prev.filter(b => b.status !== sourceStatus);
+        return [...otherBugs, ...reorderedBugs];
+      });
+      return;
+    }
+
+    // If moving to different column, update status
+    if (bug.status !== destStatus) {
       // Optimistically update the UI immediately
       setOptimisticBugs(prev => prev.map(b => 
-        b.id === draggableId ? { ...b, status: newStatus } : b
+        b.id === draggableId ? { ...b, status: destStatus } : b
       ));
 
       // Then update the server
       onBugUpdate(draggableId, { 
         title: bug.title,
         description: bug.description,
-        status: newStatus,
+        status: destStatus,
         assignee: bug.assignee,
         priority: bug.priority
       });

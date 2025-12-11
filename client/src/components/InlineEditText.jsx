@@ -91,7 +91,7 @@ const InlineEditText = ({
       {isHovered && (
         <button
           onClick={() => setIsEditing(true)}
-          className="absolute -right-6 top-0 text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute right-0 top-0 text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded"
           title="Edit"
         >
           <Edit3 className="h-3 w-3" />

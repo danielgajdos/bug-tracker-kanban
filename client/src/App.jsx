@@ -4,8 +4,9 @@ import KanbanBoard from './components/KanbanBoard';
 import BugForm from './components/BugForm';
 import BugModal from './components/BugModal';
 import Login from './components/Login';
+import ProfileDropdown from './components/ProfileDropdown';
 import { useAuth } from './hooks/useAuth';
-import { Plus, Bug, LogOut, User, Download } from 'lucide-react';
+import { Plus, Bug, Download } from 'lucide-react';
 
 // Force correct socket URL for production
 const getSocketUrl = () => {
@@ -238,10 +239,6 @@ function App() {
               <h1 className="text-xl font-semibold text-gray-900">Bug Tracker</h1>
             </div>
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <User className="h-4 w-4" />
-                <span>{user.name}</span>
-              </div>
               <button
                 onClick={() => setShowBugForm(true)}
                 className="btn-primary flex items-center space-x-2"
@@ -256,13 +253,7 @@ function App() {
                 <Download className="h-4 w-4" />
                 <span>Export Excel</span>
               </button>
-              <button
-                onClick={logout}
-                className="btn-secondary flex items-center space-x-2"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>Logout</span>
-              </button>
+              <ProfileDropdown user={user} onLogout={logout} />
             </div>
           </div>
         </div>

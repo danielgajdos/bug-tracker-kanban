@@ -112,7 +112,7 @@ if (!fs.existsSync('uploads')) {
 }
 
 // Database setup
-const { db, initializeDatabase } = require('./database');
+const { db, initializeDatabase, getNextBugNumber } = require('./database');
 
 // Initialize database
 initializeDatabase();
@@ -256,6 +256,7 @@ app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), async (req, r
   try {
     const { title, description, priority } = req.body;
     const id = uuidv4();
+    const bugNumber = await getNextBugNumber();
     
     // Use authenticated user's info
     const reporter_name = req.user.name;
@@ -264,12 +265,13 @@ app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), async (req, r
     const screenshots = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
     
     await db.execute(`
-      INSERT INTO bugs (id, title, description, priority, reporter_name, reporter_email, screenshots)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [id, title, description, priority, reporter_name, reporter_email, JSON.stringify(screenshots)]);
+      INSERT INTO bugs (id, bug_number, title, description, priority, reporter_name, reporter_email, screenshots)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [id, bugNumber, title, description, priority, reporter_name, reporter_email, JSON.stringify(screenshots)]);
     
     const newBug = {
       id,
+      bug_number: bugNumber,
       title,
       description,
       status: 'reported',
@@ -423,14 +425,13 @@ app.get('/api/export/excel', requireAuth, async (req, res) => {
 
     // Prepare data for Excel
     const excelData = rows.map(bug => ({
-      'Bug ID': bug.id,
+      'Bug ID': bug.bug_number || bug.id,
       'Title': bug.title,
       'Description': bug.description || '',
       'Status': bug.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase()),
       'Priority': bug.priority.charAt(0).toUpperCase() + bug.priority.slice(1),
       'Reporter Name': bug.reporter_name,
       'Reporter Email': bug.reporter_email,
-      'Assignee': bug.assignee || 'Unassigned',
       'Created Date': new Date(bug.created_at).toLocaleDateString(),
       'Updated Date': new Date(bug.updated_at).toLocaleDateString(),
       'Comments': bug.comments || 'No comments'
@@ -449,7 +450,6 @@ app.get('/api/export/excel', requireAuth, async (req, res) => {
       { wch: 12 }, // Priority
       { wch: 20 }, // Reporter Name
       { wch: 25 }, // Reporter Email
-      { wch: 20 }, // Assignee
       { wch: 12 }, // Created Date
       { wch: 12 }, // Updated Date
       { wch: 40 }  // Comments

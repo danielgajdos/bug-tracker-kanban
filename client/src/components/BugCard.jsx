@@ -18,6 +18,9 @@ const BugCard = ({ bug, onClick }) => {
     >
       <div className="flex items-start justify-between mb-2">
         <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+        {bug.bug_number && (
+          <span className="text-xs text-gray-500 font-mono">{bug.bug_number}</span>
+        )}
       </div>
       
       <h4 className="font-medium text-gray-900 mb-2 line-clamp-2 text-sm">

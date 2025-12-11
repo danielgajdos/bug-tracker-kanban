@@ -6,6 +6,7 @@ import RichTextEditor from './RichTextEditor';
 import EditableComment from './EditableComment';
 import InlineEditText from './InlineEditText';
 import InlineEditSelect from './InlineEditSelect';
+import DescriptionEditor from './DescriptionEditor';
 
 const priorityColors = {
   low: 'bg-green-100 text-green-800 border-green-200',
@@ -31,6 +32,7 @@ const priorityOptions = [
 const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComment }) => {
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState(bug.comments || []);
+  const [showDescriptionEditor, setShowDescriptionEditor] = useState(false);
 
   const handleAddComment = (e) => {
     e.preventDefault();
@@ -81,13 +83,12 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-3 flex-1">
             <AlertCircle className="h-6 w-6 text-red-500 flex-shrink-0" />
-            <InlineEditText
-              value={bug.title}
-              onSave={(value) => handleFieldUpdate('title', value)}
-              placeholder="Bug title..."
-              className="text-xl font-semibold text-gray-900 flex-1"
-              canEdit={bug.status !== 'resolved'}
-            />
+            <div className="flex-1">
+              {bug.bug_number && (
+                <div className="text-sm text-gray-500 font-mono mb-1">{bug.bug_number}</div>
+              )}
+              <h2 className="text-xl font-semibold text-gray-900">{bug.title}</h2>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <InlineEditSelect
@@ -119,13 +120,8 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
                   <MarkdownRenderer content={bug.description} />
                   {bug.status !== 'resolved' && (
                     <button
-                      onClick={() => {
-                        const newDescription = prompt('Edit description:', bug.description);
-                        if (newDescription !== null && newDescription !== bug.description) {
-                          handleFieldUpdate('description', newDescription);
-                        }
-                      }}
-                      className="absolute -right-6 top-0 text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setShowDescriptionEditor(true)}
+                      className="absolute right-0 top-0 text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded"
                       title="Edit description"
                     >
                       <Edit3 className="h-3 w-3" />
@@ -137,13 +133,8 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
                   No description provided
                   {bug.status !== 'resolved' && (
                     <button
-                      onClick={() => {
-                        const newDescription = prompt('Add description:');
-                        if (newDescription && newDescription.trim()) {
-                          handleFieldUpdate('description', newDescription.trim());
-                        }
-                      }}
-                      className="absolute -right-6 top-0 text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => setShowDescriptionEditor(true)}
+                      className="absolute right-0 top-0 text-gray-400 hover:text-gray-600 p-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white rounded"
                       title="Add description"
                     >
                       <Edit3 className="h-3 w-3" />
@@ -152,6 +143,15 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
                 </div>
               )}
             </div>
+
+            {/* Description Editor Modal */}
+            {showDescriptionEditor && (
+              <DescriptionEditor
+                bug={bug}
+                onSave={(description) => handleFieldUpdate('description', description)}
+                onClose={() => setShowDescriptionEditor(false)}
+              />
+            )}
 
 
 
