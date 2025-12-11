@@ -129,6 +129,7 @@ db.serialize(() => {
     author TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (bug_id) REFERENCES bugs (id)
   )`);
 });
@@ -409,6 +410,56 @@ app.post('/api/bugs/:id/comments', requireAuth, (req, res) => {
   });
   
   stmt.finalize();
+});
+
+// Update comment
+app.put('/api/bugs/:bugId/comments/:commentId', requireAuth, (req, res) => {
+  const { bugId, commentId } = req.params;
+  const { content } = req.body;
+  
+  // First check if the comment exists and belongs to the current user
+  db.get('SELECT * FROM comments WHERE id = ? AND bug_id = ?', [commentId, bugId], (err, comment) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    if (!comment) {
+      res.status(404).json({ error: 'Comment not found' });
+      return;
+    }
+    
+    // Check if the comment belongs to the current user
+    if (comment.author !== req.user.name) {
+      res.status(403).json({ error: 'You can only edit your own comments' });
+      return;
+    }
+    
+    // Update the comment
+    const stmt = db.prepare(`
+      UPDATE comments 
+      SET content = ?
+      WHERE id = ? AND bug_id = ?
+    `);
+    
+    stmt.run([content, commentId, bugId], function(err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      const updatedComment = {
+        ...comment,
+        content,
+        updated_at: new Date().toISOString()
+      };
+      
+      io.emit('commentUpdated', updatedComment);
+      res.json(updatedComment);
+    });
+    
+    stmt.finalize();
+  });
 });
 
 // Serve React app for all other routes

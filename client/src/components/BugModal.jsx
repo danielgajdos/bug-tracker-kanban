@@ -3,6 +3,7 @@ import { formatDistanceToNow, format } from 'date-fns';
 import { X, User, Clock, MessageSquare, Send, Edit3, Save, AlertCircle } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import RichTextEditor from './RichTextEditor';
+import EditableComment from './EditableComment';
 
 const priorityColors = {
   low: 'bg-green-100 text-green-800 border-green-200',
@@ -18,7 +19,7 @@ const statusColors = {
   'resolved': 'bg-green-100 text-green-800'
 };
 
-const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete }) => {
+const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComment }) => {
   const [newComment, setNewComment] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
@@ -28,6 +29,7 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete }) => {
     priority: bug.priority,
     assignee: bug.assignee || ''
   });
+  const [comments, setComments] = useState(bug.comments || []);
 
   const handleAddComment = (e) => {
     e.preventDefault();
@@ -39,9 +41,23 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete }) => {
     }
   };
 
+  // Update comments when bug.comments changes
+  React.useEffect(() => {
+    setComments(bug.comments || []);
+  }, [bug.comments]);
+
   const handleDelete = () => {
     if (window.confirm('Are you sure you want to delete this bug? This action cannot be undone.')) {
       onDelete(bug.id);
+    }
+  };
+
+  const handleCommentUpdate = (updatedComment) => {
+    setComments(prev => prev.map(comment => 
+      comment.id === updatedComment.id ? updatedComment : comment
+    ));
+    if (onUpdateComment) {
+      onUpdateComment(updatedComment);
     }
   };
 
@@ -161,18 +177,13 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete }) => {
                 </h4>
 
                 <div className="space-y-4 mb-6">
-                  {bug.comments?.map(comment => (
-                    <div key={comment.id} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-medium text-gray-900">{comment.author}</span>
-                        <span className="text-sm text-gray-500">
-                          {format(new Date(comment.created_at), 'MMM d, yyyy HH:mm')}
-                        </span>
-                      </div>
-                      <div className="text-gray-700">
-                        <MarkdownRenderer content={comment.content} />
-                      </div>
-                    </div>
+                  {comments.map(comment => (
+                    <EditableComment
+                      key={comment.id}
+                      comment={comment}
+                      bugStatus={bug.status}
+                      onUpdate={handleCommentUpdate}
+                    />
                   ))}
                 </div>
 

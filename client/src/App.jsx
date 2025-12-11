@@ -44,11 +44,19 @@ function App() {
       }
     });
 
+    socket.on('commentUpdated', (updatedComment) => {
+      // Refresh the selected bug if it's open
+      if (selectedBug && selectedBug.id === updatedComment.bug_id) {
+        fetchBugDetails(updatedComment.bug_id);
+      }
+    });
+
     return () => {
       socket.off('bugCreated');
       socket.off('bugUpdated');
       socket.off('bugDeleted');
       socket.off('commentAdded');
+      socket.off('commentUpdated');
     };
   }, [selectedBug]);
 
@@ -163,6 +171,18 @@ function App() {
     }
   };
 
+  const handleUpdateComment = (updatedComment) => {
+    // Update the selected bug's comments
+    if (selectedBug && selectedBug.id === updatedComment.bug_id) {
+      setSelectedBug(prev => ({
+        ...prev,
+        comments: prev.comments.map(comment => 
+          comment.id === updatedComment.id ? updatedComment : comment
+        )
+      }));
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -233,6 +253,7 @@ function App() {
           onUpdate={handleBugUpdate}
           onAddComment={handleAddComment}
           onDelete={handleDeleteBug}
+          onUpdateComment={handleUpdateComment}
         />
       )}
     </div>
