@@ -10,7 +10,8 @@
     "build": "cd client && npm run build",
     "start": "node server/index.js",
     "install:all": "npm install && cd client && npm install",
-    "postinstall": "cd client && npm install"
+    "postinstall": "cd client && npm install",
+    "migrate:bug-numbers": "node server/migrate-bug-numbers.js"
   },
   "dependencies": {
     "@azure/msal-browser": "^4.27.0",
