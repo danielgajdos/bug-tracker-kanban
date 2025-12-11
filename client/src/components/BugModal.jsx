@@ -47,7 +47,8 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
   }, [bug.comments]);
 
   const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this bug? This action cannot be undone.')) {
+    const confirmMessage = `Are you sure you want to delete this bug?\n\nTitle: "${bug.title}"\n\nThis action cannot be undone and will permanently remove the bug and all its comments.`;
+    if (window.confirm(confirmMessage)) {
       onDelete(bug.id);
     }
   };
@@ -94,15 +95,7 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
                 >
                   Cancel
                 </button>
-                {bug.status === 'reported' && (
-                  <button
-                    onClick={handleDelete}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-1"
-                  >
-                    <X className="h-4 w-4" />
-                    <span>Delete</span>
-                  </button>
-                )}
+
               </>
             ) : (
               <button
@@ -193,7 +186,7 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder="Add a comment... You can paste images directly here!"
-                    rows={3}
+                    rows={2}
                   />
                   <button
                     type="submit"
@@ -211,16 +204,14 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
               <div className="card">
                 <h4 className="font-medium text-gray-900 mb-4">Bug Information</h4>
                 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Status
-                    </label>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Status:</span>
                     {isEditing ? (
                       <select
                         value={editData.status}
                         onChange={(e) => handleEditChange('status', e.target.value)}
-                        className="input"
+                        className="input text-sm py-1 px-2 w-32"
                       >
                         <option value="reported">Reported</option>
                         <option value="in-progress">In Progress</option>
@@ -228,21 +219,19 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
                         <option value="resolved">Resolved</option>
                       </select>
                     ) : (
-                      <span className={`inline-block px-2 py-1 text-sm font-medium rounded-full ${statusColors[bug.status]}`}>
+                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${statusColors[bug.status]}`}>
                         {bug.status.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
                       </span>
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Priority
-                    </label>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">Priority:</span>
                     {isEditing ? (
                       <select
                         value={editData.priority}
                         onChange={(e) => handleEditChange('priority', e.target.value)}
-                        className="input"
+                        className="input text-sm py-1 px-2 w-32"
                       >
                         <option value="low">Low</option>
                         <option value="medium">Medium</option>
@@ -250,27 +239,8 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
                         <option value="critical">Critical</option>
                       </select>
                     ) : (
-                      <span className={`inline-block px-2 py-1 text-sm font-medium rounded-full border ${priorityColors[bug.priority]}`}>
+                      <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full border ${priorityColors[bug.priority]}`}>
                         {bug.priority.charAt(0).toUpperCase() + bug.priority.slice(1)}
-                      </span>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Assignee
-                    </label>
-                    {isEditing ? (
-                      <input
-                        type="text"
-                        value={editData.assignee}
-                        onChange={(e) => handleEditChange('assignee', e.target.value)}
-                        placeholder="Assign to developer"
-                        className="input"
-                      />
-                    ) : (
-                      <span className="text-gray-900">
-                        {bug.assignee || 'Unassigned'}
                       </span>
                     )}
                   </div>
@@ -314,6 +284,19 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
             </div>
           </div>
         </div>
+        
+        {/* Delete Button at Bottom */}
+        {isEditing && bug.status === 'reported' && (
+          <div className="px-6 py-4 border-t bg-gray-50">
+            <button
+              onClick={handleDelete}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center space-x-1"
+            >
+              <X className="h-4 w-4" />
+              <span>Delete Bug</span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

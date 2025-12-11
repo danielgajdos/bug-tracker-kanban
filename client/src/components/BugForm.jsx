@@ -59,7 +59,7 @@ const BugForm = ({ onClose, onSubmit }) => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="p-2 space-y-2">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Bug Title *
@@ -112,7 +112,7 @@ You can paste images directly here or use Markdown formatting:
 
 
 
-          <div className="flex justify-end space-x-3 pt-4 border-t">
+          <div className="flex justify-end space-x-3 pt-2 border-t mt-4">
             <button
               type="button"
               onClick={onClose}

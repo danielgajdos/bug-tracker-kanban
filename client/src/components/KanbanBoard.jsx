@@ -19,6 +19,8 @@ const KanbanBoard = ({ bugs, onBugClick, onBugUpdate }) => {
     const bug = bugs.find(b => b.id === draggableId);
     if (bug && bug.status !== newStatus) {
       onBugUpdate(draggableId, { 
+        title: bug.title,
+        description: bug.description,
         status: newStatus,
         assignee: bug.assignee,
         priority: bug.priority

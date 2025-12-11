@@ -78,7 +78,7 @@ const EditableComment = ({ comment, bugStatus, onUpdate }) => {
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             placeholder="Edit your comment..."
-            rows={3}
+            rows={2}
           />
           <div className="flex items-center space-x-2">
             <button
