@@ -8,7 +8,8 @@ const path = require('path');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const session = require('express-session');
-const { ConfidentialClientApplication } = require('@azure/msal-node');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 require('dotenv').config();
 
 const app = express();
@@ -30,24 +31,44 @@ app.set('trust proxy', 1);
 
 // Whitelisted users
 const ALLOWED_USERS = [
-  'daniel.gajdos@aardwark.com',
-  'marian.fedoronko@aardwark.com'
+  'daniel.gajdos@gmail.com',
+  'marianext244@gmail.com'
 ];
 
-// Microsoft Auth Configuration
-const msalConfig = {
-  auth: {
-    clientId: process.env.AZURE_CLIENT_ID || 'your-client-id',
-    clientSecret: process.env.AZURE_CLIENT_SECRET || 'your-client-secret',
-    authority: 'https://login.microsoftonline.com/common'
+// Google Auth Configuration
+passport.use(new GoogleStrategy({
+  clientID: process.env.GOOGLE_CLIENT_ID || 'your-google-client-id',
+  clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'your-google-client-secret',
+  callbackURL: "/auth/google/callback"
+}, (accessToken, refreshToken, profile, done) => {
+  const userEmail = profile.emails[0].value;
+  
+  // Check if user is in whitelist
+  if (!ALLOWED_USERS.includes(userEmail)) {
+    return done(null, false, { message: 'Access denied' });
   }
-};
+  
+  const user = {
+    id: profile.id,
+    email: userEmail,
+    name: profile.displayName || userEmail,
+    picture: profile.photos[0]?.value
+  };
+  
+  return done(null, user);
+}));
 
-const cca = new ConfidentialClientApplication(msalConfig);
+passport.serializeUser((user, done) => {
+  done(null, user);
+});
+
+passport.deserializeUser((user, done) => {
+  done(null, user);
+});
 
 // Auth middleware
 const requireAuth = (req, res, next) => {
-  if (req.session.user) {
+  if (req.isAuthenticated()) {
     next();
   } else {
     res.status(401).json({ error: 'Authentication required' });
@@ -72,6 +93,9 @@ app.use(session({
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
+
+app.use(passport.initialize());
+app.use(passport.session());
 app.use('/uploads', express.static('uploads'));
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
@@ -142,68 +166,40 @@ io.on('connection', (socket) => {
 });
 
 // Auth Routes
-app.get('/auth/login', (req, res) => {
-  const authCodeUrlParameters = {
-    scopes: ['user.read'],
-    redirectUri: `${req.protocol}://${req.get('host')}/auth/callback`,
-  };
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
 
-  cca.getAuthCodeUrl(authCodeUrlParameters).then((response) => {
-    res.redirect(response);
-  }).catch((error) => {
-    console.error('Auth URL error:', error);
-    res.status(500).json({ error: 'Authentication error' });
-  });
-});
-
-app.get('/auth/callback', (req, res) => {
-  const tokenRequest = {
-    code: req.query.code,
-    scopes: ['user.read'],
-    redirectUri: `${req.protocol}://${req.get('host')}/auth/callback`,
-  };
-
-  cca.acquireTokenByCode(tokenRequest).then((response) => {
-    // Get user info from token
-    const userEmail = response.account.username;
-    
-    // Check if user is in whitelist
-    if (!ALLOWED_USERS.includes(userEmail)) {
-      return res.status(403).send(`
-        <html>
-          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h2>Access Denied</h2>
-            <p>Your account (${userEmail}) is not authorized to access this application.</p>
-            <p>Please contact an administrator if you believe this is an error.</p>
-          </body>
-        </html>
-      `);
-    }
-
-    // Store user in session
-    req.session.user = {
-      email: userEmail,
-      name: response.account.name || userEmail,
-      id: response.account.homeAccountId
-    };
-
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/auth/failed' }),
+  (req, res) => {
     res.redirect('/');
-  }).catch((error) => {
-    console.error('Token acquisition error:', error);
-    res.status(500).json({ error: 'Authentication failed' });
-  });
+  }
+);
+
+app.get('/auth/failed', (req, res) => {
+  res.status(403).send(`
+    <html>
+      <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+        <h2>Access Denied</h2>
+        <p>Your Google account is not authorized to access this application.</p>
+        <p>Please contact an administrator if you believe this is an error.</p>
+        <a href="/" style="color: #3b82f6; text-decoration: none;">← Back to Login</a>
+      </body>
+    </html>
+  `);
 });
 
 app.get('/auth/user', (req, res) => {
-  if (req.session.user) {
-    res.json(req.session.user);
+  if (req.isAuthenticated()) {
+    res.json(req.user);
   } else {
     res.status(401).json({ error: 'Not authenticated' });
   }
 });
 
 app.post('/auth/logout', (req, res) => {
-  req.session.destroy((err) => {
+  req.logout((err) => {
     if (err) {
       return res.status(500).json({ error: 'Logout failed' });
     }
@@ -246,8 +242,8 @@ app.post('/api/bugs', requireAuth, upload.array('screenshots', 5), (req, res) =>
   const id = uuidv4();
   
   // Use authenticated user's info
-  const reporter_name = req.session.user.name;
-  const reporter_email = req.session.user.email;
+  const reporter_name = req.user.name;
+  const reporter_email = req.user.email;
   
   const screenshots = req.files ? req.files.map(file => `/uploads/${file.filename}`) : [];
   
