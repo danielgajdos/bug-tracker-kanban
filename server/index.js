@@ -33,9 +33,24 @@ const PORT = process.env.PORT || 3001;
 // Trust Railway proxy
 app.set('trust proxy', 1);
 
-// Force HTTPS in production
+// Health check endpoint (must be first, before any middleware)
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage()
+  });
+});
+
+// Force HTTPS in production (but allow health checks)
 if (process.env.NODE_ENV === 'production') {
   app.use((req, res, next) => {
+    // Skip HTTPS redirect for health check endpoint
+    if (req.path === '/health') {
+      return next();
+    }
+    
     if (req.header('x-forwarded-proto') !== 'https') {
       res.redirect(`https://${req.header('host')}${req.url}`);
     } else {
@@ -121,10 +136,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Health check endpoint (no auth required) - must be before static files
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
-});
+
 
 app.use('/uploads', express.static('uploads'));
 app.use(express.static(path.join(__dirname, '../client/dist')));
