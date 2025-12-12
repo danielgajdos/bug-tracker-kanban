@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, Clock, User } from 'lucide-react';
+import { Clock, User } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 
 const priorityColors = {
@@ -17,7 +17,9 @@ const BugCard = ({ bug, onClick }) => {
       onClick={onClick}
     >
       <div className="flex items-start justify-between mb-2">
-        <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0 mt-0.5" />
+        <span className={`px-1.5 py-0.5 text-xs font-medium rounded border ${priorityColors[bug.priority]} flex-shrink-0`}>
+          {bug.priority.charAt(0).toUpperCase() + bug.priority.slice(1)}
+        </span>
         {bug.bug_number && (
           <span className="text-xs text-gray-500 font-mono">{bug.bug_number}</span>
         )}
@@ -34,14 +36,9 @@ const BugCard = ({ bug, onClick }) => {
       )}
       
       <div className="flex items-center justify-between text-xs text-gray-500">
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-1">
-            <User className="h-3 w-3" />
-            <span>{bug.reporter_name}</span>
-          </div>
-          <span className={`px-1.5 py-0.5 text-xs font-medium rounded border ${priorityColors[bug.priority]}`}>
-            {bug.priority}
-          </span>
+        <div className="flex items-center space-x-1">
+          <User className="h-3 w-3" />
+          <span>{bug.reporter_name}</span>
         </div>
         <div className="flex items-center space-x-1">
           <Clock className="h-3 w-3" />

@@ -3,6 +3,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 import BugCard from './BugCard';
 
 const columns = [
+  { id: 'returned', title: 'Returned', color: 'bg-orange-100 border-orange-200' },
   { id: 'reported', title: 'Reported', color: 'bg-red-100 border-red-200' },
   { id: 'in-progress', title: 'In Progress', color: 'bg-yellow-100 border-yellow-200' },
   { id: 'testing', title: 'Testing', color: 'bg-blue-100 border-blue-200' },
@@ -66,7 +67,7 @@ const KanbanBoard = ({ bugs, onBugClick, onBugUpdate }) => {
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {columns.map(column => (
           <div key={column.id} className="flex flex-col">
             <div className={`${column.color} rounded-lg p-4 mb-4`}>

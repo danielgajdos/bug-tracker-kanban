@@ -280,8 +280,8 @@ app.delete('/api/bugs/:id', requireAuth, async (req, res) => {
       return;
     }
     
-    if (bug.status !== 'reported') {
-      res.status(403).json({ error: 'Can only delete bugs in Reported status' });
+    if (bug.status !== 'reported' && bug.status !== 'returned') {
+      res.status(403).json({ error: 'Can only delete bugs in Reported or Returned status' });
       return;
     }
     

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
-import { X, User, Clock, MessageSquare, Send, AlertCircle, Edit3 } from 'lucide-react';
+import { X, User, Clock, MessageSquare, Send, Edit3 } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import RichTextEditor from './RichTextEditor';
 import EditableComment from './EditableComment';
@@ -16,6 +16,7 @@ const priorityColors = {
 };
 
 const statusColors = {
+  'returned': 'bg-orange-100 text-orange-800',
   'reported': 'bg-red-100 text-red-800',
   'in-progress': 'bg-yellow-100 text-yellow-800',
   'testing': 'bg-blue-100 text-blue-800',
@@ -82,7 +83,17 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center space-x-3 flex-1">
-            <AlertCircle className="h-6 w-6 text-red-500 flex-shrink-0" />
+            <ClickToEditSelect
+              value={bug.priority}
+              options={priorityOptions}
+              onSave={(value) => handleFieldUpdate('priority', value)}
+              canEdit={bug.status !== 'resolved'}
+              renderValue={(value) => (
+                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${priorityColors[value]} hover:bg-opacity-80 transition-colors flex-shrink-0`}>
+                  {value.charAt(0).toUpperCase() + value.slice(1)}
+                </span>
+              )}
+            />
             <div className="flex-1">
               {bug.bug_number && (
                 <div className="text-sm text-gray-500 font-mono mb-1">{bug.bug_number}</div>
@@ -101,17 +112,6 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
             </div>
           </div>
           <div className="flex items-center space-x-2">
-            <ClickToEditSelect
-              value={bug.priority}
-              options={priorityOptions}
-              onSave={(value) => handleFieldUpdate('priority', value)}
-              canEdit={bug.status !== 'resolved'}
-              renderValue={(value) => (
-                <span className={`px-2 py-1 text-xs font-medium rounded-full border ${priorityColors[value]} hover:bg-opacity-80 transition-colors`}>
-                  {value.charAt(0).toUpperCase() + value.slice(1)}
-                </span>
-              )}
-            />
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600"
@@ -204,7 +204,7 @@ const BugModal = ({ bug, onClose, onUpdate, onAddComment, onDelete, onUpdateComm
         </div>
         
         {/* Delete Button */}
-        {bug.status === 'reported' && (
+        {(bug.status === 'reported' || bug.status === 'returned') && (
           <div className="px-6 py-4 border-t bg-gray-50">
             <button
               onClick={handleDelete}
