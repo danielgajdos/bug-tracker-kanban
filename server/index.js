@@ -35,11 +35,15 @@ app.set('trust proxy', 1);
 
 // Health check endpoint (must be first, before any middleware)
 app.get('/health', (req, res) => {
+  const storage = require('./storage');
+  const storageStats = storage.getStorageStats();
+  
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    memory: process.memoryUsage()
+    memory: process.memoryUsage(),
+    storage: storageStats
   });
 });
 
