@@ -10,7 +10,7 @@
     "build": "cd client && npm run build",
     "start": "node server/index.js",
     "install:all": "npm install && cd client && npm install",
-    "postinstall": "cd client && npm install",
+    "postinstall": "cd client && npm install && npm run build",
     "migrate:bug-numbers": "node server/migrate-bug-numbers.js"
   },
   "dependencies": {
