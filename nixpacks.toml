@@ -1,0 +1,19 @@
+[phases.setup]
+nixPkgs = ['nodejs_18', 'npm']
+
+[phases.install]
+cmds = [
+  'npm ci --only=production',
+  'cd client && npm ci --only=production'
+]
+
+[phases.build]
+cmds = [
+  'cd client && npm run build'
+]
+
+[start]
+cmd = 'npm start'
+
+[variables]
+NODE_ENV = 'production'
