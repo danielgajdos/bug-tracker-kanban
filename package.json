@@ -17,6 +17,7 @@
     "@azure/msal-browser": "^4.27.0",
     "@azure/msal-node": "^3.8.4",
     "@microsoft/microsoft-graph-client": "^3.0.7",
+    "aws-sdk": "^2.1693.0",
     "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "botbuilder": "^4.23.3",

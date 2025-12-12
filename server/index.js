@@ -141,9 +141,10 @@ app.use(passport.session());
 app.use('/uploads', express.static('uploads'));
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
-// Create uploads directory
+// Create uploads directory (now persistent with Railway volume)
 if (!fs.existsSync('uploads')) {
-  fs.mkdirSync('uploads');
+  fs.mkdirSync('uploads', { recursive: true });
+  console.log('Created uploads directory');
 }
 
 // Database setup
